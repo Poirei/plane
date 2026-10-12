@@ -153,7 +153,7 @@ class WorkspaceUserProfileIssuesEndpoint(BaseAPIView):
         issue_queryset = issue_queryset.filter(**filters)
 
         # Total count queryset
-        total_issue_queryset = copy.deepcopy(issue_queryset)
+        total_issue_queryset = issue_queryset.all()
 
         # Apply annotations to the issue queryset
         issue_queryset = self.apply_annotations(issue_queryset)
