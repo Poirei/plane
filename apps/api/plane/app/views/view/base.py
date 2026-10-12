@@ -232,7 +232,7 @@ class WorkspaceViewIssuesViewSet(BaseViewSet):
         issue_queryset = issue_queryset.filter(permission_filters)
 
         # Base query for the counts
-        total_issue_count_queryset = copy.deepcopy(issue_queryset)
+        total_issue_count_queryset = issue_queryset.all()
         total_issue_count_queryset = total_issue_count_queryset.only("id")
 
         # Apply annotations to the issue queryset
