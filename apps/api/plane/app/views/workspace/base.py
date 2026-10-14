@@ -289,17 +289,19 @@ class UserWorkspaceDashboardEndpoint(BaseAPIView):
             .order_by("week_in_month")
         )
 
-        assigned_issues = Issue.issue_objects.filter(workspace__slug=slug, assignees__in=[request.user]).count()
-
-        pending_issues_count = Issue.issue_objects.filter(
-            ~Q(state__group__in=["completed", "cancelled"]),
+        # ⚡ Bolt: Optimize by combining 3 count queries into a single aggregate query
+        issue_counts = Issue.issue_objects.filter(
             workspace__slug=slug,
-            assignees__in=[request.user],
-        ).count()
+            assignees__in=[request.user]
+        ).aggregate(
+            assigned=Count("id"),
+            pending=Count("id", filter=~Q(state__group__in=["completed", "cancelled"])),
+            completed=Count("id", filter=Q(state__group="completed"))
+        )
 
-        completed_issues_count = Issue.issue_objects.filter(
-            workspace__slug=slug, assignees__in=[request.user], state__group="completed"
-        ).count()
+        assigned_issues = issue_counts["assigned"]
+        pending_issues_count = issue_counts["pending"]
+        completed_issues_count = issue_counts["completed"]
 
         issues_due_week = (
             Issue.issue_objects.filter(workspace__slug=slug, assignees__in=[request.user])
