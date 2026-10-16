@@ -289,24 +289,35 @@ class UserWorkspaceDashboardEndpoint(BaseAPIView):
             .order_by("week_in_month")
         )
 
-        assigned_issues = Issue.issue_objects.filter(workspace__slug=slug, assignees__in=[request.user]).count()
+        current_week = timezone.now().date().isocalendar()[1]
 
-        pending_issues_count = Issue.issue_objects.filter(
-            ~Q(state__group__in=["completed", "cancelled"]),
-            workspace__slug=slug,
-            assignees__in=[request.user],
-        ).count()
-
-        completed_issues_count = Issue.issue_objects.filter(
-            workspace__slug=slug, assignees__in=[request.user], state__group="completed"
-        ).count()
-
-        issues_due_week = (
-            Issue.issue_objects.filter(workspace__slug=slug, assignees__in=[request.user])
-            .annotate(target_week=ExtractWeek("target_date"))
-            .filter(target_week=timezone.now().date().isocalendar()[1])
-            .count()
+        issue_counts = Issue.issue_objects.filter(
+            workspace__slug=slug, assignees__in=[request.user]
+        ).annotate(
+            target_week=ExtractWeek("target_date")
+        ).aggregate(
+            assigned_issues_count=Count("id", distinct=True),
+            pending_issues_count=Count(
+                "id",
+                filter=~Q(state__group__in=["completed", "cancelled"]),
+                distinct=True
+            ),
+            completed_issues_count=Count(
+                "id",
+                filter=Q(state__group="completed"),
+                distinct=True
+            ),
+            issues_due_week_count=Count(
+                "id",
+                filter=Q(target_week=current_week),
+                distinct=True
+            )
         )
+
+        assigned_issues = issue_counts["assigned_issues_count"]
+        pending_issues_count = issue_counts["pending_issues_count"]
+        completed_issues_count = issue_counts["completed_issues_count"]
+        issues_due_week = issue_counts["issues_due_week_count"]
 
         state_distribution = (
             Issue.issue_objects.filter(workspace__slug=slug, assignees__in=[request.user])
