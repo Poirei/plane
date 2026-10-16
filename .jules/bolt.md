@@ -1,0 +1,3 @@
+## 2024-05-15 - Combine Multiple Backend Queries using conditional Count
+**Learning:** Multiple sequential `.count()` calls on closely related database subsets can bottleneck performance by initiating multiple separate round-trips to the DB.
+**Action:** Always combine similar multiple sequential `Queryset.count()` calls into a single database `.aggregate()` roundtrip. When doing so, ensure that the base queryset doesn't accidentally increase scanned rows by stripping away original filters; merge them properly using `Q(...) | Q(...)`. Ensure `distinct=True` inside `Count` when referencing fields across relations (like M2M).
