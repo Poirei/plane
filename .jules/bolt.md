@@ -1,0 +1,3 @@
+## 2024-10-17 - Combined multiple Issue counts into a single aggregate query
+**Learning:** Found multiple separate `.count()` database queries for different issue states with similar base filters in `WorkspaceUserProfileStatsEndpoint.get`. This causes an N+1 like query problem executing 4 separate queries to the database.
+**Action:** Combined 4 separate `.count()` queries into a single database round-trip by using Django's `.aggregate()` with conditional `Count(..., filter=...)` functions. Remembered to include `distinct=True` inside the `Count` function to avoid duplicate counts caused by `LEFT JOIN`s traversing the M2M relationships.
