@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - [Django query combine with aggregate]
+**Learning:** When combining multiple `.count()` queries using Django's `.aggregate()` and conditional `Count(..., filter=...)`, explicitly restrict the base `.filter()` using `Q` objects (e.g., `Q(condition_a) | Q(condition_b)`). Otherwise you unintentionally widen the query scope across the entire table before aggregation, causing a severe O(N) performance regression.
+**Action:** Always check the filters applied to the individual queries and combine them with `Q` objects in the base query before aggregating. Ensure `distinct=True` inside the `Count` function when traversing M2M relationships to avoid duplicates.

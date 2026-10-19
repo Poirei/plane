@@ -439,51 +439,37 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
             .order_by("priority_order")
         )
 
-        created_issues = (
+        issue_stats = (
             Issue.issue_objects.filter(
+                Q(created_by_id=user_id) | Q(assignees__in=[user_id], issue_assignee__deleted_at__isnull=True),
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
-                created_by_id=user_id,
             )
             .filter(**filters)
-            .count()
+            .aggregate(
+                created_issues_count=Count("id", filter=Q(created_by_id=user_id), distinct=True),
+                assigned_issues_count=Count(
+                    "id", filter=Q(assignees__in=[user_id], issue_assignee__deleted_at__isnull=True), distinct=True
+                ),
+                pending_issues_count=Count(
+                    "id",
+                    filter=~Q(state__group__in=["completed", "cancelled"])
+                    & Q(assignees__in=[user_id], issue_assignee__deleted_at__isnull=True),
+                    distinct=True,
+                ),
+                completed_issues_count=Count(
+                    "id",
+                    filter=Q(state__group="completed", assignees__in=[user_id], issue_assignee__deleted_at__isnull=True),
+                    distinct=True,
+                ),
+            )
         )
 
-        assigned_issues_count = (
-            Issue.issue_objects.filter(
-                (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
-                workspace__slug=slug,
-                project__project_projectmember__member=request.user,
-                project__project_projectmember__is_active=True,
-            )
-            .filter(**filters)
-            .count()
-        )
-
-        pending_issues_count = (
-            Issue.issue_objects.filter(
-                ~Q(state__group__in=["completed", "cancelled"]),
-                (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
-                workspace__slug=slug,
-                project__project_projectmember__member=request.user,
-                project__project_projectmember__is_active=True,
-            )
-            .filter(**filters)
-            .count()
-        )
-
-        completed_issues_count = (
-            Issue.issue_objects.filter(
-                (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
-                workspace__slug=slug,
-                state__group="completed",
-                project__project_projectmember__member=request.user,
-                project__project_projectmember__is_active=True,
-            )
-            .filter(**filters)
-            .count()
-        )
+        created_issues = issue_stats["created_issues_count"]
+        assigned_issues_count = issue_stats["assigned_issues_count"]
+        pending_issues_count = issue_stats["pending_issues_count"]
+        completed_issues_count = issue_stats["completed_issues_count"]
 
         subscribed_issues_count = (
             IssueSubscriber.objects.filter(
