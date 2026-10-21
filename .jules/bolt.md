@@ -1,0 +1,3 @@
+## 2024-05-19 - Combining multiple `.count()` queries in Django APIs
+**Learning:** In Django APIs with large datasets, executing multiple separate `.count()` queries on the same table (e.g., `Issue`) can lead to performance bottlenecks, especially when filtering by related fields or user associations.
+**Action:** Replace multiple `.count()` calls on the same base queryset with a single `.aggregate()` call using conditional `Count(..., filter=...)`. Ensure `distinct=True` is explicitly included when traversing Many-to-Many relationships to avoid duplicated counts, and constrain the base query using `Q(...) | Q(...)` to prevent querying the entire table before aggregation.
