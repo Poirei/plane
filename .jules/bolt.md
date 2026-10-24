@@ -1,0 +1,3 @@
+## 2024-05-19 - [Combine Sequential .count() Queries via conditional aggregation]
+**Learning:** Sequential `.count()` queries filtering for different attributes (like issue status) represent a subtle N+1 equivalent when fetching complex data in Django ORM. They can be effectively compressed into one query utilizing `.aggregate()` alongside `Count` and `Q` object filters.
+**Action:** Always scan views logic (like `apps/api/plane/app/views/cycle/base.py`) for repeating queries returning single count results and optimize them dynamically by aggregating on the specific states. Ensure to include `distinct=True` inside `Count` safely.
