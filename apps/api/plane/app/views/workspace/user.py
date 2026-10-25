@@ -439,51 +439,44 @@ class WorkspaceUserProfileStatsEndpoint(BaseAPIView):
             .order_by("priority_order")
         )
 
-        created_issues = (
+        # Combine multiple .count() queries into a single query using .aggregate() to reduce database round-trips.
+        # This optimizes performance while maintaining exact same result sets.
+        issue_counts = (
             Issue.issue_objects.filter(
+                Q(created_by_id=user_id) | (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
                 workspace__slug=slug,
                 project__project_projectmember__member=request.user,
                 project__project_projectmember__is_active=True,
-                created_by_id=user_id,
             )
             .filter(**filters)
-            .count()
+            .aggregate(
+                created_issues=Count(
+                    "id",
+                    distinct=True,
+                    filter=Q(created_by_id=user_id),
+                ),
+                assigned_issues=Count(
+                    "id",
+                    distinct=True,
+                    filter=Q(assignees__in=[user_id], issue_assignee__deleted_at__isnull=True),
+                ),
+                pending_issues=Count(
+                    "id",
+                    distinct=True,
+                    filter=Q(assignees__in=[user_id], issue_assignee__deleted_at__isnull=True) & ~Q(state__group__in=["completed", "cancelled"]),
+                ),
+                completed_issues=Count(
+                    "id",
+                    distinct=True,
+                    filter=Q(assignees__in=[user_id], issue_assignee__deleted_at__isnull=True, state__group="completed"),
+                ),
+            )
         )
 
-        assigned_issues_count = (
-            Issue.issue_objects.filter(
-                (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
-                workspace__slug=slug,
-                project__project_projectmember__member=request.user,
-                project__project_projectmember__is_active=True,
-            )
-            .filter(**filters)
-            .count()
-        )
-
-        pending_issues_count = (
-            Issue.issue_objects.filter(
-                ~Q(state__group__in=["completed", "cancelled"]),
-                (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
-                workspace__slug=slug,
-                project__project_projectmember__member=request.user,
-                project__project_projectmember__is_active=True,
-            )
-            .filter(**filters)
-            .count()
-        )
-
-        completed_issues_count = (
-            Issue.issue_objects.filter(
-                (Q(assignees__in=[user_id]) & Q(issue_assignee__deleted_at__isnull=True)),
-                workspace__slug=slug,
-                state__group="completed",
-                project__project_projectmember__member=request.user,
-                project__project_projectmember__is_active=True,
-            )
-            .filter(**filters)
-            .count()
-        )
+        created_issues = issue_counts.get("created_issues", 0)
+        assigned_issues_count = issue_counts.get("assigned_issues", 0)
+        pending_issues_count = issue_counts.get("pending_issues", 0)
+        completed_issues_count = issue_counts.get("completed_issues", 0)
 
         subscribed_issues_count = (
             IssueSubscriber.objects.filter(
